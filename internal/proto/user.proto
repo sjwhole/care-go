@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package user;
+
+import "google/protobuf/empty.proto";
+
+option go_package = ".";
+
+
+// The user message type
+message User {
+  string id = 1;
+  string name = 2;
+  uint64 kakoId = 3;
+}
+
+// The request message containing the user's id
+message GetUserRequest {
+  string id = 1;
+}
+
+// The request message containing user's details
+message CreateUserRequest {
+  string kakaoAccessToken = 1;
+}
+
+// The request message containing user's id and new details
+message UpdateUserRequest {
+  string id = 1;
+  User user = 2;
+}
+
+// The request message containing the user's id
+message DeleteUserRequest {
+  string id = 1;
+}
+
+message GetUserByKakaoAccessTokenRequest {
+  string kakaoAccessToken = 1;
+}
+
+message GetJWTByAccessTokenRequest {
+  string kakaoAccessToken = 1;
+}
+
+message JWT {
+  string jwt = 1;
+}
+
+
+// The User service definition
+service UserService {
+  // Gets a user by ID
+  rpc GetUser(google.protobuf.Empty) returns (User) {}
+
+  // Creates a new user
+  rpc CreateUser(CreateUserRequest) returns (User) {}
+
+  // Updates a user
+  rpc UpdateUser(UpdateUserRequest) returns (User) {}
+
+  // Deletes a user
+  rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty) {}
+
+  rpc GetUserByKakaoAccessToken(GetUserByKakaoAccessTokenRequest) returns (User) {}
+
+  rpc GetJWTByAccessToken(GetJWTByAccessTokenRequest) returns (JWT) {}
+}
