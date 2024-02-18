@@ -6,11 +6,10 @@ import (
 	pb "care-backend/internal/pb"
 	"care-backend/internal/utils"
 	"context"
-	"fmt"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 	"strconv"
 	"sync"
@@ -24,28 +23,21 @@ type UserService struct {
 	// Add any additional fields you need here (like a database connection)
 }
 
-func (s *UserService) GetUser(ctx context.Context, req *emptypb.Empty) (*pb.User, error) {
-
-	md, _ := metadata.FromIncomingContext(ctx)
-	fmt.Println(md["jwt"])
-
-	userId, err := s.jwtManager.VerifyJwtToken(md["jwt"][0])
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(userId)
+func (s *UserService) GetUser(ctx context.Context, _ *emptypb.Empty) (*pb.User, error) {
+	userId := ctx.Value("userId").(uint)
 
 	s.mu.Lock()
-
 	var dbUser models.User
-	s.db.First(&dbUser, userId)
-
+	//result := s.db.First(&dbUser, userId)
+	result := s.db.Model(&models.User{}).Preload("Subscriptions", func(tx *gorm.DB) *gorm.DB {
+		return tx.Limit(1).Order("expires_at desc")
+	}).First(&dbUser, userId)
 	s.mu.Unlock()
 
-	if dbUser == (models.User{}) {
+	if result.Error != nil {
 		return nil, status.Errorf(codes.NotFound, "dbUser not found")
 	} else {
-		return &pb.User{Id: strconv.Itoa(int(dbUser.ID)), Name: dbUser.Name, KakoId: dbUser.KakaoId}, nil
+		return &pb.User{Id: strconv.Itoa(int(dbUser.ID)), Name: dbUser.Name, KakaoId: dbUser.KakaoId}, nil
 	}
 }
 
@@ -61,7 +53,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *pb.CreateUserRequest)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return &pb.User{Id: strconv.Itoa(int(user.ID)), Name: user.Name, KakoId: user.KakaoId}, nil
+	return &pb.User{Id: strconv.Itoa(int(user.ID)), Name: user.Name, KakaoId: user.KakaoId}, nil
 }
 
 func (s *UserService) UpdateUser(ctx context.Context, req *pb.UpdateUserRequest) (*pb.User, error) {
@@ -84,14 +76,14 @@ func (s *UserService) GetUserByKakaoAccessToken(ctx context.Context, req *pb.Get
 	s.mu.Lock()
 
 	var dbUser models.User
-	s.db.First(&dbUser, "kakao_id=?", kakao.Id)
+	result := s.db.First(&dbUser, "kakao_id=?", kakao.Id)
 
 	s.mu.Unlock()
 
-	if dbUser == (models.User{}) {
+	if result.Error != nil {
 		return nil, status.Errorf(codes.NotFound, "dbUser not found")
 	} else {
-		return &pb.User{Id: strconv.Itoa(int(dbUser.ID)), Name: dbUser.Name, KakoId: dbUser.KakaoId}, nil
+		return &pb.User{Id: strconv.Itoa(int(dbUser.ID)), Name: dbUser.Name, KakaoId: dbUser.KakaoId, CreatedAt: timestamppb.New(dbUser.CreatedAt)}, nil
 	}
 }
 
@@ -105,11 +97,11 @@ func (s *UserService) GetJWTByAccessToken(ctx context.Context, req *pb.GetJWTByA
 	s.mu.Lock()
 
 	var dbUser models.User
-	s.db.First(&dbUser, "kakao_id=?", kakao.Id)
+	result := s.db.First(&dbUser, "kakao_id=?", kakao.Id)
 
 	s.mu.Unlock()
 
-	if dbUser == (models.User{}) {
+	if result.Error != nil {
 		return nil, status.Errorf(codes.NotFound, "dbUser not found")
 	} else {
 		token, err := s.jwtManager.IssueJwtToken(int(dbUser.ID))
@@ -120,7 +112,7 @@ func (s *UserService) GetJWTByAccessToken(ctx context.Context, req *pb.GetJWTByA
 	}
 }
 
-func NewServer(db *gorm.DB, jwtManager *auth.JwtManager) *UserService {
+func NewUserServer(db *gorm.DB, jwtManager *auth.JwtManager) *UserService {
 	s := &UserService{db: db, jwtManager: jwtManager}
 	return s
 }

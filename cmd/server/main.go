@@ -2,56 +2,37 @@ package main
 
 import (
 	"care-backend/internal/auth"
+	"care-backend/internal/interceptors"
 	"care-backend/internal/models"
 	pb "care-backend/internal/pb"
 	"care-backend/internal/server"
-	"context"
-	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"log"
 	"net"
-	"os"
-	"strconv"
 )
 
-type Product struct {
-	gorm.Model
-	Code  string
-	Price uint
-}
-
 func main() {
-	// Load env
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	secretKey := os.Getenv("SECRET_KEY")
-	validMin, err := strconv.Atoi(os.Getenv("VALID_MIN"))
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	// Create a new JWT manager
-	jwtManager := auth.NewJwtManager(secretKey, validMin)
+	// Load jwt manager
+	jwtManager := auth.InitliazeJWTManager()
 
 	// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
-	dsn := "root@tcp(127.0.0.1:3306)/care?charset=utf8mb4&parseTime=True&loc=Local"
+	//dsn := "root@tcp(127.0.0.1:3306)/care?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "root:root@tcp(mysql:3306)/care?charset=utf8mb4&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		//Logger: logger.Default.LogMode(logger.Info), // Log every SQL query
+		Logger: logger.Default.LogMode(logger.Info), // Log every SQL query
 	})
 	if err != nil {
 		panic(err.Error())
 	}
 
 	// Migrate the schema
-	err = db.AutoMigrate(&Product{}, &models.User{})
+	err = db.AutoMigrate(&models.User{}, &models.Subscription{})
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("Failed to migrate: %v", err)
 	}
 
 	// Listen on a specific host and port
@@ -65,29 +46,21 @@ func main() {
 
 	// Create a new gRPC server
 	s := grpc.NewServer(
-		grpc.UnaryInterceptor(authInterceptor),
+		grpc.UnaryInterceptor(interceptors.AuthInterceptor(jwtManager)),
 	)
 
 	// Register the service with the server
-	pb.RegisterUserServiceServer(s, server.NewServer(db, jwtManager))
+	pb.RegisterUserServiceServer(s, server.NewUserServer(db, jwtManager))
+	pb.RegisterSubscriptionServiceServer(s, server.NewSubscriptionServer(db, jwtManager))
+
+	reflection.Register(s)
+
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
 
 	// Serve the server
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
-}
-
-func authInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-	// Extract JWT from metadata
-	md, _ := metadata.FromIncomingContext(ctx)
-	//jwt := md["authorization"]
-	log.Println(md)
-
-	// Validate JWT (example using a hypothetical validation function)
-	//if userId,  err := auth.JwtManager.VerifyJwtToken(jwt); err != nil {
-	//	return nil, status.Errorf(codes.Unauthenticated, "Invalid authentication token")
-	//}
-
-	// Proceed with the original RPC call
-	return handler(ctx, req)
 }

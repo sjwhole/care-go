@@ -2,6 +2,8 @@ package utils
 
 import (
 	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 )
 
@@ -22,7 +24,12 @@ func GetUserInfoFromKakao(accessToken string) (KakaoResponse, error) {
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	res, _ := client.Do(req)
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}(res.Body)
 
 	var kakaoResponse KakaoResponse
 

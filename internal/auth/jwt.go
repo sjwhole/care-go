@@ -1,7 +1,12 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/joho/godotenv"
+	"log"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -29,11 +34,11 @@ func (j *JwtManager) IssueJwtToken(userId int) (string, error) {
 	return signed, nil
 }
 
-func (j *JwtManager) VerifyJwtToken(token string) (int, error) {
+func (j *JwtManager) VerifyJwtToken(token string) (uint, error) {
 	var (
 		claims jwt.MapClaims
 		err    error
-		userId int
+		userId uint
 	)
 
 	claims = jwt.MapClaims{}
@@ -44,7 +49,12 @@ func (j *JwtManager) VerifyJwtToken(token string) (int, error) {
 		return 0, err
 	}
 
-	userId = int(claims["sub"].(float64))
+	_, ok := claims["sub"].(float64)
+	if !ok {
+		return 0, fmt.Errorf("got data of type %T but expectes float64 type for userId", userId)
+	}
+	userId = uint(claims["sub"].(float64))
+
 	return userId, nil
 }
 
@@ -53,4 +63,19 @@ func NewJwtManager(secretKey string, validMin int) *JwtManager {
 		secretKey: []byte(secretKey),
 		validMin:  validMin,
 	}
+}
+
+func InitliazeJWTManager() *JwtManager {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	secretKey := os.Getenv("SECRET_KEY")
+	validMin, err := strconv.Atoi(os.Getenv("VALID_MIN"))
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	jwtManager := NewJwtManager(secretKey, validMin)
+	return jwtManager
 }
