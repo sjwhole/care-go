@@ -1,0 +1,23 @@
+version: '3'
+services:
+  mysql:
+    env_file:
+      - .env
+    image: mysql:8
+    platform: linux/amd64
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: care
+    ports:
+      - "3306:3306"
+
+  grpcserver:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DB_HOST: mysql # Use the service name as the host
+    depends_on:
+      - mysql
+    ports:
+      - "50051:50051"
