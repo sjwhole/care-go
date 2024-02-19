@@ -17,13 +17,11 @@ import (
 
 	"gorm.io/gorm"
 	"strconv"
-	"sync"
 )
 
 type SubscriptionService struct {
 	pb.UnimplementedSubscriptionServiceServer
 	db         *gorm.DB
-	mu         sync.Mutex
 	jwtManager *auth.JwtManager
 	// Add any additional fields you need here (like a database connection)
 }
@@ -33,11 +31,9 @@ func (s *SubscriptionService) GetSubscriptions(ctx context.Context, _ *emptypb.E
 
 	fmt.Println(userId)
 
-	s.mu.Lock()
 	var dbSubscriptions []models.Subscription
 	//result := s.db.First(&dbUser, userId)
 	err := s.db.Model(&models.Subscription{}).Order("expires_at DESC").Find(&dbSubscriptions, "user_id = ?", userId).Error
-	s.mu.Unlock()
 
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "dbUser not found")
@@ -54,9 +50,7 @@ func (s *SubscriptionService) CreateSubscription(ctx context.Context, req *pb.Su
 	var dbSubscription models.Subscription
 	dbSubscription.UserID = userId
 	dbSubscription.ExpiresAt = datatypes.Date(req.ExpiresAt.AsTime())
-	s.mu.Lock()
 	result := s.db.Create(&dbSubscription)
-	s.mu.Unlock()
 	if result.Error != nil {
 		return nil, status.Errorf(codes.Aborted, "Can't create subscription")
 	} else {

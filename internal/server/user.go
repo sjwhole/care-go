@@ -12,13 +12,11 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 	"strconv"
-	"sync"
 )
 
 type UserService struct {
 	pb.UnimplementedUserServiceServer
 	db         *gorm.DB
-	mu         sync.Mutex
 	jwtManager *auth.JwtManager
 	// Add any additional fields you need here (like a database connection)
 }
@@ -26,13 +24,11 @@ type UserService struct {
 func (s *UserService) GetUser(ctx context.Context, _ *emptypb.Empty) (*pb.User, error) {
 	userId := ctx.Value("userId").(uint)
 
-	s.mu.Lock()
 	var dbUser models.User
 	//result := s.db.First(&dbUser, userId)
 	result := s.db.Model(&models.User{}).Preload("Subscriptions", func(tx *gorm.DB) *gorm.DB {
 		return tx.Limit(1).Order("expires_at desc")
 	}).First(&dbUser, userId)
-	s.mu.Unlock()
 
 	if result.Error != nil {
 		return nil, status.Errorf(codes.NotFound, "dbUser not found")
@@ -73,12 +69,8 @@ func (s *UserService) GetUserByKakaoAccessToken(ctx context.Context, req *pb.Get
 		return nil, status.Errorf(codes.Aborted, "Can't get user info from kakao")
 	}
 
-	s.mu.Lock()
-
 	var dbUser models.User
 	result := s.db.First(&dbUser, "kakao_id=?", kakao.Id)
-
-	s.mu.Unlock()
 
 	if result.Error != nil {
 		return nil, status.Errorf(codes.NotFound, "dbUser not found")
@@ -94,12 +86,8 @@ func (s *UserService) GetJWTByAccessToken(ctx context.Context, req *pb.GetJWTByA
 		return nil, status.Errorf(codes.Aborted, "Can't get user info from kakao")
 	}
 
-	s.mu.Lock()
-
 	var dbUser models.User
 	result := s.db.First(&dbUser, "kakao_id=?", kakao.Id)
-
-	s.mu.Unlock()
 
 	if result.Error != nil {
 		return nil, status.Errorf(codes.NotFound, "dbUser not found")
