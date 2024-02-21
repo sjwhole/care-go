@@ -8,4 +8,5 @@ type User struct {
 	Name          string `gorm:"type:varchar(100)"`
 	PhoneNo       string `gorm:"type:varchar(100)"`
 	Subscriptions []Subscription
+	Parents       []Parent
 }

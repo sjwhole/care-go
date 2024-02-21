@@ -30,7 +30,7 @@ func main() {
 	}
 
 	// Migrate the schema
-	err = db.AutoMigrate(&models.User{}, &models.Subscription{})
+	err = db.AutoMigrate(&models.User{}, &models.Subscription{}, &models.Parent{})
 	if err != nil {
 		log.Fatalf("Failed to migrate: %v", err)
 	}
