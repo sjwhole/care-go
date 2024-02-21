@@ -1,16 +1,14 @@
 package main
 
 import (
+	db "care-backend/db/gen"
 	"care-backend/internal/auth"
 	"care-backend/internal/interceptors"
-	"care-backend/internal/models"
 	pb "care-backend/internal/pb"
 	"care-backend/internal/server"
+	"database/sql"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"log"
 	"net"
 )
@@ -20,20 +18,20 @@ func main() {
 	jwtManager := auth.InitliazeJWTManager()
 
 	// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
-	//dsn := "root@tcp(127.0.0.1:3306)/care?charset=utf8mb4&parseTime=True&loc=Local"
-	dsn := "root:root@tcp(mysql:3306)/care?charset=utf8mb4&parseTime=True&loc=Local"
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info), // Log every SQL query
-	})
+	dsn := "root@tcp(127.0.0.1:3306)/care?charset=utf8mb4&parseTime=True&loc=Local"
+	//dsn := "root:root@tcp(mysql:3306)/care?charset=utf8mb4&parseTime=True&loc=Local"
+	conn, err := sql.Open("mysql", dsn)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("Failed to open a DB connection: %v", err)
 	}
+	defer func(conn *sql.DB) {
+		err := conn.Close()
+		if err != nil {
+			log.Printf("Failed to close the DB connection: %v\n", err)
+		}
+	}(conn)
 
-	// Migrate the schema
-	err = db.AutoMigrate(&models.User{}, &models.Subscription{}, &models.Parent{})
-	if err != nil {
-		log.Fatalf("Failed to migrate: %v", err)
-	}
+	queries := db.New(conn)
 
 	// Listen on a specific host and port
 	lis, err := net.Listen("tcp", "0.0.0.0:50051")
@@ -50,8 +48,8 @@ func main() {
 	)
 
 	// Register the service with the server
-	pb.RegisterUserServiceServer(s, server.NewUserServer(db, jwtManager))
-	pb.RegisterSubscriptionServiceServer(s, server.NewSubscriptionServer(db, jwtManager))
+	pb.RegisterUserServiceServer(s, server.NewUserServer(queries, jwtManager))
+	pb.RegisterSubscriptionServiceServer(s, server.NewSubscriptionServer(queries, jwtManager))
 
 	reflection.Register(s)
 
