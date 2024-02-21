@@ -16,7 +16,7 @@ import (
 
 type SubscriptionService struct {
 	pb.UnimplementedSubscriptionServiceServer
-	quries     *db.Queries
+	queries    *db.Queries
 	jwtManager *auth.JwtManager
 	// Add any additional fields you need here (like a database connection)
 }
@@ -32,7 +32,7 @@ func subscriptionToPbSubscription(subscription *db.Subscription) *pb.Subscriptio
 func (s *SubscriptionService) GetSubscriptions(ctx context.Context, _ *emptypb.Empty) (*pb.SubscriptionList, error) {
 	userId := ctx.Value("userId").(uint)
 
-	subscriptions, err := s.quries.GetSubscriptionsByUserId(ctx, sql.NullInt64{Int64: int64(userId), Valid: true})
+	subscriptions, err := s.queries.GetSubscriptionsByUserId(ctx, sql.NullInt64{Int64: int64(userId), Valid: true})
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "subscriptions not found")
 	} else {
@@ -45,7 +45,7 @@ func (s *SubscriptionService) GetSubscriptions(ctx context.Context, _ *emptypb.E
 func (s *SubscriptionService) CreateSubscription(ctx context.Context, req *pb.SubscriptionCreateRequest) (*pb.Subscription, error) {
 	userId := ctx.Value("userId").(uint)
 
-	result, err := s.quries.CreateSubscription(ctx, db.CreateSubscriptionParams{
+	result, err := s.queries.CreateSubscription(ctx, db.CreateSubscriptionParams{
 		UserID:    sql.NullInt64{Int64: int64(uint64(userId)), Valid: true},
 		ExpiresAt: sql.NullTime{Time: req.ExpiresAt.AsTime(), Valid: true},
 	})
@@ -53,7 +53,7 @@ func (s *SubscriptionService) CreateSubscription(ctx context.Context, req *pb.Su
 		return nil, status.Errorf(codes.Aborted, "Can't create subscription")
 	} else {
 		id, _ := result.LastInsertId()
-		subscription, err := s.quries.GetSubscriptionById(ctx, uint64(id))
+		subscription, err := s.queries.GetSubscriptionById(ctx, uint64(id))
 		if err != nil {
 			return nil, status.Errorf(codes.NotFound, "subscription not found")
 		} else {
@@ -62,7 +62,7 @@ func (s *SubscriptionService) CreateSubscription(ctx context.Context, req *pb.Su
 	}
 }
 
-func NewSubscriptionServer(quries *db.Queries, jwtManager *auth.JwtManager) *SubscriptionService {
-	s := &SubscriptionService{quries: quries, jwtManager: jwtManager}
+func NewSubscriptionServer(queries *db.Queries, jwtManager *auth.JwtManager) *SubscriptionService {
+	s := &SubscriptionService{queries: queries, jwtManager: jwtManager}
 	return s
 }

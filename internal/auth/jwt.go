@@ -65,7 +65,7 @@ func NewJwtManager(secretKey string, validMin int) *JwtManager {
 	}
 }
 
-func InitliazeJWTManager() *JwtManager {
+func NewJWTManager() *JwtManager {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
