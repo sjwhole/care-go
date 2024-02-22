@@ -58,14 +58,7 @@ func (j *JwtManager) VerifyJwtToken(token string) (uint, error) {
 	return userId, nil
 }
 
-func NewJwtManager(secretKey string, validMin int) *JwtManager {
-	return &JwtManager{
-		secretKey: []byte(secretKey),
-		validMin:  validMin,
-	}
-}
-
-func NewJWTManager() *JwtManager {
+func NewJwtManager() *JwtManager {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -76,6 +69,8 @@ func NewJWTManager() *JwtManager {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	jwtManager := NewJwtManager(secretKey, validMin)
-	return jwtManager
+	return &JwtManager{
+		secretKey: []byte(secretKey),
+		validMin:  validMin,
+	}
 }

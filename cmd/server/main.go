@@ -15,7 +15,7 @@ import (
 
 func main() {
 	// Load jwt manager
-	jwtManager := auth.NewJWTManager()
+	jwtManager := auth.NewJwtManager()
 
 	// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
 	dsn := "root@tcp(127.0.0.1:3306)/care?charset=utf8mb4&parseTime=True&loc=Local"
